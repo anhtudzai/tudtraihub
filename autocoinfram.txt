@@ -1,0 +1,548 @@
+-- Roll to Claim UGC - Auto Script (Auto Execute + Treo cả ngày)
+-- Script By DZS_AnhTu
+
+print("[Auto Farm] Starting...")
+
+local Players = game:GetService("Players")
+local Player = Players.LocalPlayer
+local RunService = game:GetService("RunService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local UserId = Player.UserId
+local PlayerGui = Player:WaitForChild("PlayerGui")
+
+if PlayerGui:FindFirstChild("AutoFarmGUI") then
+    PlayerGui:FindFirstChild("AutoFarmGUI"):Destroy()
+end
+
+-- === LƯU SCRIPT SOURCE VÀO WORKSPACE ĐỂ AUTO EXECUTE SAU REJOIN ===
+local SCRIPT_SOURCE = [[
+-- Auto Execute Script
+print("[Auto Exec] Running saved script...")
+
+local Players = game:GetService("Players")
+local Player = Players.LocalPlayer
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local UserId = Player.UserId
+local PlayerGui = Player:WaitForChild("PlayerGui")
+
+if PlayerGui:FindFirstChild("AutoFarmGUI") then
+    PlayerGui:FindFirstChild("AutoFarmGUI"):Destroy()
+end
+
+-- Auto Rejoin
+pcall(function()
+    repeat task.wait() until game.CoreGui:FindFirstChild('RobloxPromptGui')
+    local po = game.CoreGui.RobloxPromptGui.promptOverlay
+    local ts = game:GetService('TeleportService')
+    
+    po.ChildAdded:Connect(function(a)
+        if a.Name == 'ErrorPrompt' then
+            while true do
+                ts:Teleport(game.PlaceId)
+                task.wait(2)
+            end
+        end
+    end)
+end)
+
+local function FindCoinEvent()
+    local function scan(folder)
+        for _, child in pairs(folder:GetChildren()) do
+            if child:IsA("RemoteEvent") then
+                local name = child.Name:lower()
+                if name:find("coin") or name:find("collect") then
+                    return child
+                end
+            elseif child:IsA("Folder") or child:IsA("Model") then
+                local result = scan(child)
+                if result then return result end
+            end
+        end
+        return nil
+    end
+    return scan(ReplicatedStorage)
+end
+
+local CollectCoinEvent = FindCoinEvent()
+
+-- GUI
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "AutoFarmGUI"
+ScreenGui.Parent = PlayerGui
+ScreenGui.ResetOnSpawn = false
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 300, 0, 250)
+MainFrame.Position = UDim2.new(0.5, -150, 0.5, -125)
+MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Visible = true
+MainFrame.Parent = ScreenGui
+
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0, 15)
+MainCorner.Parent = MainFrame
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 60)
+Title.Position = UDim2.new(0, 0, 0, 0)
+Title.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+Title.Text = "Roll to Claim UGC"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 20
+Title.Parent = MainFrame
+
+local Subtitle = Instance.new("TextLabel")
+Subtitle.Size = UDim2.new(1, 0, 0, 20)
+Subtitle.Position = UDim2.new(0, 0, 0, 40)
+Subtitle.BackgroundTransparency = 1
+Subtitle.Text = "Script By DZS_AnhTu"
+Subtitle.TextColor3 = Color3.fromRGB(255, 200, 0)
+Subtitle.Font = Enum.Font.Gotham
+Subtitle.TextSize = 12
+Subtitle.Parent = Title
+
+local MinimizeButton = Instance.new("TextButton")
+MinimizeButton.Size = UDim2.new(0, 30, 0, 30)
+MinimizeButton.Position = UDim2.new(1, -65, 0, 5)
+MinimizeButton.BackgroundColor3 = Color3.fromRGB(50, 50, 200)
+MinimizeButton.Text = "-"
+MinimizeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+MinimizeButton.Font = Enum.Font.GothamBold
+MinimizeButton.TextSize = 18
+MinimizeButton.Parent = MainFrame
+
+local CloseButton = Instance.new("TextButton")
+CloseButton.Size = UDim2.new(0, 30, 0, 30)
+CloseButton.Position = UDim2.new(1, -35, 0, 5)
+CloseButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+CloseButton.Text = "X"
+CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseButton.Font = Enum.Font.GothamBold
+CloseButton.TextSize = 18
+CloseButton.Parent = MainFrame
+
+local ExpandButton = Instance.new("TextButton")
+ExpandButton.Name = "ExpandButton"
+ExpandButton.Size = UDim2.new(0, 150, 0, 40)
+ExpandButton.Position = UDim2.new(0, 10, 0, 10)
+ExpandButton.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+ExpandButton.Text = "Auto Farm"
+ExpandButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+ExpandButton.Font = Enum.Font.GothamBold
+ExpandButton.TextSize = 15
+ExpandButton.Visible = false
+ExpandButton.Parent = ScreenGui
+
+local AutoRollEnabled = true
+local AutoCoinEnabled = true
+local AutoRollConnection = nil
+local AutoCoinConnection = nil
+local isCollecting = false
+local isMenuMinimized = false
+
+local rollOffsetX = 100
+local rollOffsetY = -150
+
+local function CollectCoin()
+    if CollectCoinEvent then
+        pcall(function() CollectCoinEvent:FireServer() end)
+    end
+end
+
+local function AutoRoll()
+    local vs = workspace.CurrentCamera.ViewportSize
+    VirtualInputManager:SendMouseButtonEvent(vs.X/2 + rollOffsetX, vs.Y/2 + rollOffsetY, 0, true, game, 0)
+    wait(0.05)
+    VirtualInputManager:SendMouseButtonEvent(vs.X/2 + rollOffsetX, vs.Y/2 + rollOffsetY, 0, false, game, 0)
+end
+
+local function AutoCoinLoop()
+    if not AutoCoinEnabled or isCollecting then return end
+    isCollecting = true
+    CollectCoin()
+    isCollecting = false
+    wait(5)
+end
+
+local function ToggleAutoRoll()
+    AutoRollEnabled = not AutoRollEnabled
+    if AutoRollEnabled then
+        AutoRollConnection = RunService.Heartbeat:Connect(function() AutoRoll() wait(1) end)
+    elseif AutoRollConnection then
+        AutoRollConnection:Disconnect()
+        AutoRollConnection = nil
+    end
+end
+
+local function ToggleAutoCoin()
+    AutoCoinEnabled = not AutoCoinEnabled
+    if AutoCoinEnabled then
+        AutoCoinConnection = RunService.Heartbeat:Connect(function() AutoCoinLoop() end)
+    elseif AutoCoinConnection then
+        AutoCoinConnection:Disconnect()
+        AutoCoinConnection = nil
+    end
+end
+
+MinimizeButton.MouseButton1Click:Connect(function()
+    isMenuMinimized = not isMenuMinimized
+    MainFrame.Visible = not isMenuMinimized
+    ExpandButton.Visible = isMenuMinimized
+end)
+
+ExpandButton.MouseButton1Click:Connect(function()
+    isMenuMinimized = false
+    MainFrame.Visible = true
+    ExpandButton.Visible = false
+end)
+
+CloseButton.MouseButton1Click:Connect(function()
+    if AutoRollConnection then AutoRollConnection:Disconnect() end
+    if AutoCoinConnection then AutoCoinConnection:Disconnect() end
+    ScreenGui:Destroy()
+end)
+
+local AutoRollButton = Instance.new("TextButton")
+AutoRollButton.Size = UDim2.new(0.9, 0, 0, 40)
+AutoRollButton.Position = UDim2.new(0.05, 0, 0, 70)
+AutoRollButton.BackgroundColor3 = AutoRollEnabled and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(45, 45, 45)
+AutoRollButton.Text = AutoRollEnabled and "Auto Roll: ON" or "Auto Roll: OFF"
+AutoRollButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+AutoRollButton.Font = Enum.Font.Gotham
+AutoRollButton.TextSize = 16
+AutoRollButton.Parent = MainFrame
+
+AutoRollButton.MouseButton1Click:Connect(function()
+    ToggleAutoRoll()
+    AutoRollButton.Text = AutoRollEnabled and "Auto Roll: ON" or "Auto Roll: OFF"
+    AutoRollButton.BackgroundColor3 = AutoRollEnabled and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(45, 45, 45)
+end)
+
+local AutoCoinButton = Instance.new("TextButton")
+AutoCoinButton.Size = UDim2.new(0.9, 0, 0, 40)
+AutoCoinButton.Position = UDim2.new(0.05, 0, 0, 120)
+AutoCoinButton.BackgroundColor3 = AutoCoinEnabled and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(45, 45, 45)
+AutoCoinButton.Text = AutoCoinEnabled and "Auto Coin: ON" or "Auto Coin: OFF"
+AutoCoinButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+AutoCoinButton.Font = Enum.Font.Gotham
+AutoCoinButton.TextSize = 16
+AutoCoinButton.Parent = MainFrame
+
+AutoCoinButton.MouseButton1Click:Connect(function()
+    ToggleAutoCoin()
+    AutoCoinButton.Text = AutoCoinEnabled and "Auto Coin: ON" or "Auto Coin: OFF"
+    AutoCoinButton.BackgroundColor3 = AutoCoinEnabled and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(45, 45, 45)
+end)
+
+local StatusLabel = Instance.new("TextLabel")
+StatusLabel.Size = UDim2.new(0.9, 0, 0, 35)
+StatusLabel.Position = UDim2.new(0.05, 0, 0, 170)
+StatusLabel.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+StatusLabel.Text = "Status: Idle"
+StatusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+StatusLabel.Font = Enum.Font.Gotham
+StatusLabel.TextSize = 14
+StatusLabel.Parent = MainFrame
+
+RunService.Heartbeat:Connect(function()
+    if AutoRollEnabled and AutoCoinEnabled then
+        StatusLabel.Text = "Status: Auto Roll + Coin"
+    elseif AutoRollEnabled then
+        StatusLabel.Text = "Status: Auto Roll"
+    elseif AutoCoinEnabled then
+        StatusLabel.Text = "Status: Auto Coin"
+    else
+        StatusLabel.Text = "Status: Idle"
+    end
+end)
+
+-- Auto bật sẵn
+AutoRollConnection = RunService.Heartbeat:Connect(function() AutoRoll() wait(1) end)
+AutoCoinConnection = RunService.Heartbeat:Connect(function() AutoCoinLoop() end)
+
+print("[Auto Exec] Script running!")
+]]
+
+-- Lưu script vào workspace
+local function SaveScriptToWorkspace()
+    pcall(function()
+        local execFolder = workspace:FindFirstChild("AutoExecFolder")
+        if not execFolder then
+            execFolder = Instance.new("Folder")
+            execFolder.Name = "AutoExecFolder"
+            execFolder.Parent = workspace
+        end
+        
+        local scriptValue = execFolder:FindFirstChild("AutoFarmScript")
+        if not scriptValue then
+            scriptValue = Instance.new("StringValue")
+            scriptValue.Name = "AutoFarmScript"
+            scriptValue.Parent = execFolder
+        end
+        
+        scriptValue.Value = SCRIPT_SOURCE
+        print("[Auto Farm] Script saved to workspace")
+    end)
+end
+
+-- Auto Rejoin
+pcall(function()
+    repeat task.wait() until game.CoreGui:FindFirstChild('RobloxPromptGui')
+    local po = game.CoreGui.RobloxPromptGui.promptOverlay
+    local ts = game:GetService('TeleportService')
+    
+    po.ChildAdded:Connect(function(a)
+        if a.Name == 'ErrorPrompt' then
+            -- Lưu script trước khi rejoin
+            SaveScriptToWorkspace()
+            
+            while true do
+                ts:Teleport(game.PlaceId)
+                task.wait(2)
+            end
+        end
+    end)
+end)
+
+-- Kiểm tra và execute script từ workspace
+local function CheckAndExecute()
+    pcall(function()
+        local execFolder = workspace:FindFirstChild("AutoExecFolder")
+        if execFolder then
+            local scriptValue = execFolder:FindFirstChild("AutoFarmScript")
+            if scriptValue and scriptValue.Value ~= "" then
+                print("[Auto Farm] Executing saved script...")
+                loadstring(scriptValue.Value)()
+            end
+        end
+    end)
+end
+
+-- Tìm coin event
+local function FindCoinEvent()
+    local function scan(folder)
+        for _, child in pairs(folder:GetChildren()) do
+            if child:IsA("RemoteEvent") then
+                local name = child.Name:lower()
+                if name:find("coin") or name:find("collect") then
+                    return child
+                end
+            elseif child:IsA("Folder") or child:IsA("Model") then
+                local result = scan(child)
+                if result then return result end
+            end
+        end
+        return nil
+    end
+    return scan(ReplicatedStorage)
+end
+
+local CollectCoinEvent = FindCoinEvent()
+
+-- GUI
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "AutoFarmGUI"
+ScreenGui.Parent = PlayerGui
+ScreenGui.ResetOnSpawn = false
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 300, 0, 250)
+MainFrame.Position = UDim2.new(0.5, -150, 0.5, -125)
+MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Visible = true
+MainFrame.Parent = ScreenGui
+
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0, 15)
+MainCorner.Parent = MainFrame
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 60)
+Title.Position = UDim2.new(0, 0, 0, 0)
+Title.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+Title.Text = "Roll to Claim UGC"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 20
+Title.Parent = MainFrame
+
+local Subtitle = Instance.new("TextLabel")
+Subtitle.Size = UDim2.new(1, 0, 0, 20)
+Subtitle.Position = UDim2.new(0, 0, 0, 40)
+Subtitle.BackgroundTransparency = 1
+Subtitle.Text = "Script By DZS_AnhTu"
+Subtitle.TextColor3 = Color3.fromRGB(255, 200, 0)
+Subtitle.Font = Enum.Font.Gotham
+Subtitle.TextSize = 12
+Subtitle.Parent = Title
+
+local MinimizeButton = Instance.new("TextButton")
+MinimizeButton.Size = UDim2.new(0, 30, 0, 30)
+MinimizeButton.Position = UDim2.new(1, -65, 0, 5)
+MinimizeButton.BackgroundColor3 = Color3.fromRGB(50, 50, 200)
+MinimizeButton.Text = "-"
+MinimizeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+MinimizeButton.Font = Enum.Font.GothamBold
+MinimizeButton.TextSize = 18
+MinimizeButton.Parent = MainFrame
+
+local CloseButton = Instance.new("TextButton")
+CloseButton.Size = UDim2.new(0, 30, 0, 30)
+CloseButton.Position = UDim2.new(1, -35, 0, 5)
+CloseButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+CloseButton.Text = "X"
+CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseButton.Font = Enum.Font.GothamBold
+CloseButton.TextSize = 18
+CloseButton.Parent = MainFrame
+
+local ExpandButton = Instance.new("TextButton")
+ExpandButton.Name = "ExpandButton"
+ExpandButton.Size = UDim2.new(0, 150, 0, 40)
+ExpandButton.Position = UDim2.new(0, 10, 0, 10)
+ExpandButton.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+ExpandButton.Text = "Auto Farm"
+ExpandButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+ExpandButton.Font = Enum.Font.GothamBold
+ExpandButton.TextSize = 15
+ExpandButton.Visible = false
+ExpandButton.Parent = ScreenGui
+
+-- Auto bật sẵn khi chạy
+local AutoRollEnabled = true
+local AutoCoinEnabled = true
+local AutoRollConnection = nil
+local AutoCoinConnection = nil
+local isCollecting = false
+local isMenuMinimized = false
+
+local rollOffsetX = 100
+local rollOffsetY = -150
+
+local function CollectCoin()
+    if CollectCoinEvent then
+        pcall(function() CollectCoinEvent:FireServer() end)
+    end
+end
+
+local function AutoRoll()
+    local vs = workspace.CurrentCamera.ViewportSize
+    VirtualInputManager:SendMouseButtonEvent(vs.X/2 + rollOffsetX, vs.Y/2 + rollOffsetY, 0, true, game, 0)
+    wait(0.05)
+    VirtualInputManager:SendMouseButtonEvent(vs.X/2 + rollOffsetX, vs.Y/2 + rollOffsetY, 0, false, game, 0)
+end
+
+local function AutoCoinLoop()
+    if not AutoCoinEnabled or isCollecting then return end
+    isCollecting = true
+    CollectCoin()
+    isCollecting = false
+    wait(5)
+end
+
+local function ToggleAutoRoll()
+    AutoRollEnabled = not AutoRollEnabled
+    if AutoRollEnabled then
+        AutoRollConnection = RunService.Heartbeat:Connect(function() AutoRoll() wait(1) end)
+    elseif AutoRollConnection then
+        AutoRollConnection:Disconnect()
+        AutoRollConnection = nil
+    end
+end
+
+local function ToggleAutoCoin()
+    AutoCoinEnabled = not AutoCoinEnabled
+    if AutoCoinEnabled then
+        AutoCoinConnection = RunService.Heartbeat:Connect(function() AutoCoinLoop() end)
+    elseif AutoCoinConnection then
+        AutoCoinConnection:Disconnect()
+        AutoCoinConnection = nil
+    end
+end
+
+MinimizeButton.MouseButton1Click:Connect(function()
+    isMenuMinimized = not isMenuMinimized
+    MainFrame.Visible = not isMenuMinimized
+    ExpandButton.Visible = isMenuMinimized
+end)
+
+ExpandButton.MouseButton1Click:Connect(function()
+    isMenuMinimized = false
+    MainFrame.Visible = true
+    ExpandButton.Visible = false
+end)
+
+CloseButton.MouseButton1Click:Connect(function()
+    if AutoRollConnection then AutoRollConnection:Disconnect() end
+    if AutoCoinConnection then AutoCoinConnection:Disconnect() end
+    ScreenGui:Destroy()
+end)
+
+local AutoRollButton = Instance.new("TextButton")
+AutoRollButton.Size = UDim2.new(0.9, 0, 0, 40)
+AutoRollButton.Position = UDim2.new(0.05, 0, 0, 70)
+AutoRollButton.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
+AutoRollButton.Text = "Auto Roll: ON"
+AutoRollButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+AutoRollButton.Font = Enum.Font.Gotham
+AutoRollButton.TextSize = 16
+AutoRollButton.Parent = MainFrame
+
+AutoRollButton.MouseButton1Click:Connect(function()
+    ToggleAutoRoll()
+    AutoRollButton.Text = AutoRollEnabled and "Auto Roll: ON" or "Auto Roll: OFF"
+    AutoRollButton.BackgroundColor3 = AutoRollEnabled and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(45, 45, 45)
+end)
+
+local AutoCoinButton = Instance.new("TextButton")
+AutoCoinButton.Size = UDim2.new(0.9, 0, 0, 40)
+AutoCoinButton.Position = UDim2.new(0.05, 0, 0, 120)
+AutoCoinButton.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
+AutoCoinButton.Text = "Auto Coin: ON"
+AutoCoinButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+AutoCoinButton.Font = Enum.Font.Gotham
+AutoCoinButton.TextSize = 16
+AutoCoinButton.Parent = MainFrame
+
+AutoCoinButton.MouseButton1Click:Connect(function()
+    ToggleAutoCoin()
+    AutoCoinButton.Text = AutoCoinEnabled and "Auto Coin: ON" or "Auto Coin: OFF"
+    AutoCoinButton.BackgroundColor3 = AutoCoinEnabled and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(45, 45, 45)
+end)
+
+local StatusLabel = Instance.new("TextLabel")
+StatusLabel.Size = UDim2.new(0.9, 0, 0, 35)
+StatusLabel.Position = UDim2.new(0.05, 0, 0, 170)
+StatusLabel.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+StatusLabel.Text = "Status: Auto Roll + Coin"
+StatusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+StatusLabel.Font = Enum.Font.Gotham
+StatusLabel.TextSize = 14
+StatusLabel.Parent = MainFrame
+
+-- Tự động bật sẵn
+AutoRollConnection = RunService.Heartbeat:Connect(function() AutoRoll() wait(1) end)
+AutoCoinConnection = RunService.Heartbeat:Connect(function() AutoCoinLoop() end)
+
+-- Lưu script để auto execute
+SaveScriptToWorkspace()
+
+-- Kiểm tra và execute script đã lưu
+task.spawn(function()
+    wait(3)
+    CheckAndExecute()
+end)
+
+print("[Auto Farm] Script loaded - Auto Roll + Auto Coin ON")
+print("[Auto Farm] Script saved to workspace for auto execute")
